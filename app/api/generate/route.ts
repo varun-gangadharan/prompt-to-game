@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { getUserId } from "../../../lib/auth/requireUser"; // A4
+import { logGeneration } from "../../../lib/db/logGeneration"; // A4
 import {
   generateSpec,
   UnrepairableGameSpecError,
@@ -30,9 +32,11 @@ export async function POST(request: Request) {
   }
 
   const { prompt } = parsedRequest.data;
+  const userId = await getUserId(); // A4
 
   try {
     const { spec, latencyMs, repaired } = await generateSpec(prompt);
+    void logGeneration({ userId, prompt, spec, status: "ok", latencyMs }); // A4
 
     // Log shape/metrics only — never the raw prompt (may contain PII).
     console.log({
@@ -49,6 +53,11 @@ export async function POST(request: Request) {
       error instanceof Error ? error.message : "Failed to generate spec";
 
     const status = error instanceof UnrepairableGameSpecError ? 422 : 500;
+    void logGeneration({
+      userId,
+      prompt,
+      status: error instanceof UnrepairableGameSpecError ? "invalid" : "error",
+    }); // A4
 
     console.log({
       promptLength: prompt.length,

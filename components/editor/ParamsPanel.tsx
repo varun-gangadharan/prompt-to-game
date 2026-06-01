@@ -1,24 +1,69 @@
 "use client";
 
+import { useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 
 import { gameSpecSchema } from "@/lib/spec/schema";
 import type { GameSpec } from "@/lib/spec/types";
 
+import { useDebouncedSpec } from "./useDebouncedSpec";
+
 type Path = Array<string | number>;
-type ValidationResult = z.SafeParseReturnType<GameSpec, GameSpec>;
+
+const DEBOUNCE_MS = 200;
 
 type ParamsPanelProps = {
+  /** Pushes a *valid* edited spec to the canvas. Invalid drafts are skipped. */
   onChange: (spec: GameSpec) => void;
+  /** The current canvas spec; identity changes (e.g. Regenerate) reset the draft. */
   spec: GameSpec;
-  validation: ValidationResult | null;
+  /** Reports draft validity so the shell can reflect it in the header badge. */
+  onValidityChange?: (isValid: boolean) => void;
 };
 
-export function ParamsPanel({ onChange, spec, validation }: ParamsPanelProps) {
-  const activeSchema = getSchemaForTemplate(spec.template);
+export function ParamsPanel({
+  onChange,
+  spec,
+  onValidityChange,
+}: ParamsPanelProps) {
+  // The draft is the responsive local editing state. It updates on every
+  // keystroke so inputs never feel laggy; a debounced copy is what reaches
+  // the canvas.
+  const [draft, setDraft] = useState<GameSpec>(spec);
+
+  // When the canvas spec is replaced from the outside (e.g. Regenerate
+  // produces a new spec with a new id) re-seed the draft. Guarded so ordinary
+  // round-trips of our own valid edits don't clobber in-progress typing.
+  const syncedId = useRef(spec.id);
+  if (spec.id !== syncedId.current) {
+    syncedId.current = spec.id;
+    setDraft(spec);
+  }
+
+  const validation = useMemo(() => gameSpecSchema.safeParse(draft), [draft]);
+  const errors = useMemo(
+    () => (validation.success ? {} : collectFieldErrors(validation.error)),
+    [validation],
+  );
+
+  useEffect(() => {
+    onValidityChange?.(validation.success);
+  }, [validation.success, onValidityChange]);
+
+  // Debounce the draft, then only push to the canvas when it validates. An
+  // invalid draft is held back so the renderer never receives a bad spec.
+  const debouncedDraft = useDebouncedSpec(draft, DEBOUNCE_MS);
+  useEffect(() => {
+    const result = gameSpecSchema.safeParse(debouncedDraft);
+    if (result.success) {
+      onChange(result.data);
+    }
+  }, [debouncedDraft, onChange]);
+
+  const activeSchema = getSchemaForTemplate(draft.template);
 
   function updateValue(path: Path, value: unknown) {
-    onChange(setValueAtPath(spec, path, value));
+    setDraft((current) => setValueAtPath(current, path, value));
   }
 
   return (
@@ -26,38 +71,33 @@ export function ParamsPanel({ onChange, spec, validation }: ParamsPanelProps) {
       <div className="border-b border-zinc-800 px-4 py-3">
         <h2 className="text-sm font-semibold text-zinc-200">Params</h2>
         <p className="mt-1 text-xs text-zinc-500">
-          Generated from the active GameSpec schema branch.
+          {validation.success
+            ? "Edits apply to the canvas live."
+            : "Fix the highlighted fields to apply edits."}
         </p>
       </div>
       <div className="max-h-[calc(100vh-160px)] overflow-auto p-4">
         <FieldRenderer
+          errors={errors}
           onChange={updateValue}
           path={[]}
           schema={activeSchema}
-          value={spec}
+          value={draft}
         />
-
-        {!validation?.success ? (
-          <div className="mt-5 rounded-md border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-200">
-            {validation?.error.issues.slice(0, 4).map((issue) => (
-              <div key={`${issue.path.join(".")}-${issue.message}`}>
-                {issue.path.join(".") || "spec"}: {issue.message}
-              </div>
-            ))}
-          </div>
-        ) : null}
       </div>
     </aside>
   );
 }
 
 function FieldRenderer({
+  errors,
   label,
   onChange,
   path,
   schema,
   value,
 }: {
+  errors: Record<string, string>;
   label?: string;
   onChange: (path: Path, value: unknown) => void;
   path: Path;
@@ -65,6 +105,7 @@ function FieldRenderer({
   value: unknown;
 }) {
   const unwrappedSchema = unwrapOptional(schema);
+  const error = errors[path.join(".")];
 
   if (unwrappedSchema instanceof z.ZodObject) {
     const shape = unwrappedSchema.shape as Record<string, z.ZodTypeAny>;
@@ -79,6 +120,7 @@ function FieldRenderer({
           {Object.entries(shape).map(([key, childSchema]) => (
             <FieldRenderer
               key={key}
+              errors={errors}
               label={formatLabel(key)}
               onChange={onChange}
               path={[...path, key]}
@@ -102,6 +144,7 @@ function FieldRenderer({
           {items.map((item, index) => (
             <FieldRenderer
               key={index}
+              errors={errors}
               label={`${label ?? "Item"} ${index + 1}`}
               onChange={onChange}
               path={[...path, index]}
@@ -125,6 +168,7 @@ function FieldRenderer({
           {(unwrappedSchema.items as z.ZodTypeAny[]).map((itemSchema, index) => (
             <FieldRenderer
               key={index}
+              errors={errors}
               label={`${index + 1}`}
               onChange={onChange}
               path={[...path, index]}
@@ -142,7 +186,7 @@ function FieldRenderer({
       <label className="grid gap-1.5">
         <span className="text-xs font-medium text-zinc-400">{label}</span>
         <select
-          className="h-10 rounded-md border border-zinc-700 bg-zinc-950 px-3 text-sm text-zinc-100 outline-none focus:border-cyan-400"
+          className={inputClass(error)}
           onChange={(event) => onChange(path, event.target.value)}
           value={typeof value === "string" ? value : ""}
         >
@@ -152,6 +196,7 @@ function FieldRenderer({
             </option>
           ))}
         </select>
+        <FieldError error={error} />
       </label>
     );
   }
@@ -175,7 +220,7 @@ function FieldRenderer({
       <label className="grid gap-1.5">
         <span className="text-xs font-medium text-zinc-400">{label}</span>
         <input
-          className="h-10 rounded-md border border-zinc-700 bg-zinc-950 px-3 text-sm text-zinc-100 outline-none focus:border-cyan-400"
+          className={inputClass(error)}
           max={bounds.max}
           min={bounds.min}
           onChange={(event) => {
@@ -188,6 +233,7 @@ function FieldRenderer({
           type="number"
           value={typeof value === "number" ? value : ""}
         />
+        <FieldError error={error} />
       </label>
     );
   }
@@ -196,13 +242,43 @@ function FieldRenderer({
     <label className="grid gap-1.5">
       <span className="text-xs font-medium text-zinc-400">{label}</span>
       <input
-        className="h-10 rounded-md border border-zinc-700 bg-zinc-950 px-3 text-sm text-zinc-100 outline-none focus:border-cyan-400"
+        className={inputClass(error)}
         onChange={(event) => onChange(path, event.target.value)}
         type={isColorValue(value) ? "color" : "text"}
         value={typeof value === "string" ? value : ""}
       />
+      <FieldError error={error} />
     </label>
   );
+}
+
+function FieldError({ error }: { error?: string }) {
+  if (!error) {
+    return null;
+  }
+
+  return <span className="text-xs text-red-300">{error}</span>;
+}
+
+function inputClass(error?: string) {
+  return [
+    "h-10 rounded-md border bg-zinc-950 px-3 text-sm text-zinc-100 outline-none",
+    error
+      ? "border-red-500/70 focus:border-red-400"
+      : "border-zinc-700 focus:border-cyan-400",
+  ].join(" ");
+}
+
+function collectFieldErrors(error: z.ZodError): Record<string, string> {
+  const map: Record<string, string> = {};
+  for (const issue of error.issues) {
+    const key = issue.path.join(".");
+    // Keep the first message per field so inline text stays concise.
+    if (!(key in map)) {
+      map[key] = issue.message;
+    }
+  }
+  return map;
 }
 
 function getSchemaForTemplate(template: GameSpec["template"]) {
