@@ -7,8 +7,20 @@
 import { useAuth } from "@clerk/nextjs";
 import { useCallback, useState } from "react";
 
+import { clerkEnabled } from "@/lib/auth/clerkEnabled";
 import { captureThumbnail } from "@/lib/thumbnail/capture";
 import type { GameSpec } from "@/lib/spec/types";
+
+// Read sign-in state only when Clerk is configured. `clerkEnabled` is a
+// build-time constant, so this branch is stable for the lifetime of the app
+// and the rules-of-hooks order never changes between renders.
+function useOptionalIsSignedIn(): boolean {
+  if (!clerkEnabled) {
+    return false;
+  }
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  return useAuth().isSignedIn ?? false;
+}
 
 type Status =
   | "idle"
@@ -47,7 +59,7 @@ async function readError(response: Response, fallback: string): Promise<string> 
 }
 
 export function useSaveGame(initialGameId: string | null = null) {
-  const { isSignedIn } = useAuth();
+  const isSignedIn = useOptionalIsSignedIn();
   const [state, setState] = useState<SaveGameState>({
     ...INITIAL,
     gameId: initialGameId,

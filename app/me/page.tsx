@@ -7,6 +7,7 @@ import { desc, eq, sql } from "drizzle-orm";
 import type { Route } from "next";
 import Link from "next/link";
 
+import { clerkEnabled } from "@/lib/auth/clerkEnabled";
 import { db } from "@/lib/db/client";
 import { games } from "@/lib/db/schema";
 
@@ -25,6 +26,18 @@ function parsePage(raw: string | undefined): number {
 }
 
 export default async function MyGamesPage({ searchParams }: PageProps) {
+  // Without Clerk, there is no account to list and auth()/UserButton would
+  // throw — show a friendly notice instead.
+  if (!clerkEnabled) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-zinc-950 text-zinc-100">
+        <p className="text-sm text-zinc-400">
+          Sign-in is not configured on this deployment.
+        </p>
+      </main>
+    );
+  }
+
   const { userId } = await auth();
   const { page: pageParam } = await searchParams;
 

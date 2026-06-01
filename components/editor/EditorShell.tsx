@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from "react";
 import { GameCanvas } from "@/components/editor/GameCanvas";
 import { ParamsPanel } from "@/components/editor/ParamsPanel";
 import { usePromptStore } from "@/components/editor/usePromptStore";
+import { clerkEnabled } from "@/lib/auth/clerkEnabled";
 import { useSaveGame } from "@/lib/auth/useSaveGame";
 import { gameSpecSchema } from "@/lib/spec/schema";
 import type { GameSpec } from "@/lib/spec/types";
@@ -186,34 +187,45 @@ export function EditorShell() {
               {isSpecValid ? "Valid spec" : "Needs edits"}
             </span>
 
-            <SignedOut>
-              <SignInButton mode="modal">
-                <button
-                  className="inline-flex h-9 items-center rounded-md bg-cyan-300 px-3 text-sm font-semibold text-zinc-950 hover:bg-cyan-200"
-                  type="button"
-                >
-                  Sign in to save
-                </button>
-              </SignInButton>
-            </SignedOut>
-            <SignedIn>
-              <button
-                className="inline-flex h-9 items-center rounded-md border border-zinc-700 px-3 text-sm font-medium text-zinc-100 hover:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={isBusy || !isSpecValid}
-                onClick={() => void save(spec)}
-                type="button"
-              >
-                {saveStatus === "saving" ? "Saving..." : "Save"}
-              </button>
-              <button
-                className="inline-flex h-9 items-center rounded-md bg-cyan-300 px-3 text-sm font-semibold text-zinc-950 hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={isBusy || !isSpecValid}
-                onClick={() => void publish(spec)}
-                type="button"
-              >
-                {saveStatus === "publishing" ? "Publishing..." : "Publish"}
-              </button>
-            </SignedIn>
+            {/* Auth UI only renders when Clerk is configured; the Clerk
+                components require a provider. Without it, save/publish are
+                hidden (the APIs would return 401 anyway). */}
+            {clerkEnabled ? (
+              <>
+                <SignedOut>
+                  <SignInButton mode="modal">
+                    <button
+                      className="inline-flex h-9 items-center rounded-md bg-cyan-300 px-3 text-sm font-semibold text-zinc-950 hover:bg-cyan-200"
+                      type="button"
+                    >
+                      Sign in to save
+                    </button>
+                  </SignInButton>
+                </SignedOut>
+                <SignedIn>
+                  <button
+                    className="inline-flex h-9 items-center rounded-md border border-zinc-700 px-3 text-sm font-medium text-zinc-100 hover:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={isBusy || !isSpecValid}
+                    onClick={() => void save(spec)}
+                    type="button"
+                  >
+                    {saveStatus === "saving" ? "Saving..." : "Save"}
+                  </button>
+                  <button
+                    className="inline-flex h-9 items-center rounded-md bg-cyan-300 px-3 text-sm font-semibold text-zinc-950 hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={isBusy || !isSpecValid}
+                    onClick={() => void publish(spec)}
+                    type="button"
+                  >
+                    {saveStatus === "publishing" ? "Publishing..." : "Publish"}
+                  </button>
+                </SignedIn>
+              </>
+            ) : (
+              <span className="rounded-md border border-zinc-800 px-3 py-1.5 text-xs text-zinc-500">
+                Sign-in not configured
+              </span>
+            )}
           </div>
         </div>
 

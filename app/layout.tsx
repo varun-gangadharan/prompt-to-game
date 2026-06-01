@@ -1,6 +1,8 @@
 import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
 
+import { clerkEnabled } from "@/lib/auth/clerkEnabled";
+
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -13,11 +15,13 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return (
-    <ClerkProvider>
-      <html lang="en">
-        <body>{children}</body>
-      </html>
-    </ClerkProvider>
+  const document = (
+    <html lang="en">
+      <body>{children}</body>
+    </html>
   );
+
+  // Only mount ClerkProvider when keys are configured — in a production build
+  // it throws without a publishable key. See lib/auth/clerkEnabled.
+  return clerkEnabled ? <ClerkProvider>{document}</ClerkProvider> : document;
 }

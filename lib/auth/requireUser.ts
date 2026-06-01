@@ -6,6 +6,8 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
+import { clerkEnabled } from "./clerkEnabled";
+
 export class UnauthorizedError extends Error {
   constructor(message = "Authentication required.") {
     super(message);
@@ -14,6 +16,11 @@ export class UnauthorizedError extends Error {
 }
 
 export async function requireUser(): Promise<string> {
+  // Without Clerk configured there is no session, so every write is anonymous
+  // and therefore unauthorized. Calling auth() here would throw (no middleware).
+  if (!clerkEnabled) {
+    throw new UnauthorizedError();
+  }
   const { userId } = await auth();
   if (!userId) {
     throw new UnauthorizedError();
@@ -23,6 +30,9 @@ export async function requireUser(): Promise<string> {
 
 /** Returns the current user id or null without throwing. */
 export async function getUserId(): Promise<string | null> {
+  if (!clerkEnabled) {
+    return null;
+  }
   const { userId } = await auth();
   return userId ?? null;
 }
