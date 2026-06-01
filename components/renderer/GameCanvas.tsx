@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef } from "react";
 
 import type { GameRenderer } from "@/lib/renderer/GameRenderer";
 import { createPlatformerRenderer } from "@/lib/renderer/platformer";
+import { createRunnerRenderer } from "@/lib/renderer/runner";
+import { createShooterRenderer } from "@/lib/renderer/shooter";
 import type { GameSpec } from "@/lib/spec/types";
 
 type GameCanvasProps = {
@@ -13,6 +15,12 @@ type GameCanvasProps = {
 function createRenderer(spec: GameSpec): GameRenderer | null {
   if (spec.template === "platformer") {
     return createPlatformerRenderer();
+  }
+  if (spec.template === "shooter") {
+    return createShooterRenderer();
+  }
+  if (spec.template === "runner") {
+    return createRunnerRenderer();
   }
 
   return null;
