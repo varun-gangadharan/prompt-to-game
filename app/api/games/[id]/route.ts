@@ -11,6 +11,7 @@ import {
 } from "@/lib/auth/requireUser";
 import { db } from "@/lib/db/client";
 import { games } from "@/lib/db/schema";
+import { withSentry } from "@/lib/observability/sentry";
 import { gameSpecSchema } from "@/lib/spec/schema";
 
 export const runtime = "nodejs";
@@ -29,7 +30,7 @@ const patchGameSchema = z
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-export async function GET(_request: Request, context: RouteContext) {
+async function handleGet(_request: Request, context: RouteContext) {
   const { id } = await context.params;
   if (!idSchema.safeParse(id).success) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
@@ -60,7 +61,7 @@ export async function GET(_request: Request, context: RouteContext) {
   });
 }
 
-export async function PATCH(request: Request, context: RouteContext) {
+async function handlePatch(request: Request, context: RouteContext) {
   try {
     const userId = await requireUser();
 
@@ -110,3 +111,6 @@ export async function PATCH(request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Failed to update game" }, { status: 500 });
   }
 }
+
+export const GET = withSentry(handleGet);
+export const PATCH = withSentry(handlePatch);

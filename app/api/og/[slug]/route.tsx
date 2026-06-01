@@ -7,6 +7,7 @@ import { ImageResponse } from "next/og";
 
 import { db } from "@/lib/db/client";
 import { games } from "@/lib/db/schema";
+import { withSentry } from "@/lib/observability/sentry";
 import { gameSpecSchema } from "@/lib/spec/schema";
 
 export const runtime = "nodejs";
@@ -14,7 +15,7 @@ export const runtime = "nodejs";
 const WIDTH = 1200;
 const HEIGHT = 630;
 
-export async function GET(
+async function handleGet(
   _request: Request,
   context: { params: Promise<{ slug: string }> },
 ) {
@@ -115,3 +116,5 @@ export async function GET(
     { width: WIDTH, height: HEIGHT },
   );
 }
+
+export const GET = withSentry(handleGet);

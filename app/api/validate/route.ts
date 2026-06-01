@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 
+import { withSentry } from "@/lib/observability/sentry";
 import { gameSpecSchema, validateRequestSchema } from "@/lib/spec/schema";
 
-export async function POST(request: Request) {
+async function handlePost(request: Request) {
   const body = await request.json().catch(() => null);
   const parsedRequest = validateRequestSchema.safeParse(body);
 
@@ -27,3 +28,5 @@ export async function POST(request: Request) {
     spec: parsedSpec.data,
   });
 }
+
+export const POST = withSentry(handlePost);

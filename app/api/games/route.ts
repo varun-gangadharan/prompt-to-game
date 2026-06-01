@@ -7,6 +7,7 @@ import { z } from "zod";
 import { requireUser, unauthorizedResponse } from "@/lib/auth/requireUser";
 import { db } from "@/lib/db/client";
 import { games, type Visibility } from "@/lib/db/schema";
+import { withSentry } from "@/lib/observability/sentry";
 import { gameSpecSchema } from "@/lib/spec/schema";
 
 export const runtime = "nodejs";
@@ -17,7 +18,7 @@ const createGameSchema = z.object({
   visibility: z.enum(["private", "unlisted", "public"]).optional(),
 });
 
-export async function POST(request: Request) {
+async function handlePost(request: Request) {
   try {
     const ownerId = await requireUser();
 
@@ -52,3 +53,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Failed to create game" }, { status: 500 });
   }
 }
+
+export const POST = withSentry(handlePost);

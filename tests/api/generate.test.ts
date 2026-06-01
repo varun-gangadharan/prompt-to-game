@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { POST } from "../../app/api/generate/route";
 import { gameSpecSchema } from "../../lib/spec/schema";
+
+// Imported lazily inside the (gated) test so merely collecting this file never
+// pulls in the route — and its eager DB client — when the suite is skipped.
+type GeneratePost = (request: Request) => Promise<Response>;
 
 const prompts = [
   "Make a cozy platformer about a toast hero collecting jam jars.",
@@ -26,7 +29,7 @@ const prompts = [
   "Normal difficulty shooter using pixel art and chip-a music.",
 ];
 
-async function postGenerate(prompt: string) {
+async function postGenerate(POST: GeneratePost, prompt: string) {
   let lastResponse: Response | null = null;
   let lastBody: unknown = null;
 
@@ -52,8 +55,12 @@ describe.skipIf(!process.env.GEMINI_API_KEY)("POST /api/generate", () => {
   it(
     "returns valid GameSpecs for a 20-prompt smoke set",
     async () => {
+      const { POST } = (await import("../../app/api/generate/route")) as {
+        POST: GeneratePost;
+      };
+
       for (const prompt of prompts) {
-        const { response, body } = await postGenerate(prompt);
+        const { response, body } = await postGenerate(POST, prompt);
 
         expect(response?.status).toBe(200);
         const result = gameSpecSchema.safeParse(

@@ -12,6 +12,7 @@ import { requireUser, unauthorizedResponse } from "@/lib/auth/requireUser";
 import { db } from "@/lib/db/client";
 import { games } from "@/lib/db/schema";
 import { mintSlugCandidate } from "@/lib/db/slug";
+import { withSentry } from "@/lib/observability/sentry";
 import { uploadThumbnail } from "@/lib/thumbnail/capture";
 
 export const runtime = "nodejs";
@@ -50,7 +51,7 @@ async function readThumbnail(request: Request): Promise<ArrayBuffer | null> {
   return file.arrayBuffer();
 }
 
-export async function POST(request: Request, context: RouteContext) {
+async function handlePost(request: Request, context: RouteContext) {
   try {
     const userId = await requireUser();
 
@@ -103,3 +104,5 @@ export async function POST(request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Failed to publish game" }, { status: 500 });
   }
 }
+
+export const POST = withSentry(handlePost);

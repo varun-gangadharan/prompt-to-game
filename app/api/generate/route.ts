@@ -8,8 +8,9 @@ import {
 } from "../../../lib/llm/generateSpec";
 import { clientKey, rateLimit } from "../../../lib/llm/rateLimit";
 import { generateRequestSchema } from "../../../lib/spec/schema";
+import { withSentry } from "../../../lib/observability/sentry";
 
-export async function POST(request: Request) {
+async function handlePost(request: Request) {
   const limit = rateLimit(clientKey(request));
   if (!limit.allowed) {
     return NextResponse.json(
@@ -47,7 +48,12 @@ export async function POST(request: Request) {
       repaired,
     });
 
-    return NextResponse.json({ spec });
+    // `x-spec-repaired` is additive diagnostics (the JSON body is unchanged):
+    // it lets the eval harness measure repair rate from the HTTP boundary.
+    return NextResponse.json(
+      { spec },
+      { headers: { "x-spec-repaired": String(repaired) } },
+    );
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Failed to generate spec";
@@ -70,3 +76,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: message }, { status });
   }
 }
+
+export const POST = withSentry(handlePost);
