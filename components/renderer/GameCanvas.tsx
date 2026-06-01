@@ -12,14 +12,14 @@ type GameCanvasProps = {
   spec: GameSpec;
 };
 
-function createRenderer(spec: GameSpec): GameRenderer | null {
-  if (spec.template === "platformer") {
+function createRenderer(template: GameSpec["template"]): GameRenderer | null {
+  if (template === "platformer") {
     return createPlatformerRenderer();
   }
-  if (spec.template === "shooter") {
+  if (template === "shooter") {
     return createShooterRenderer();
   }
-  if (spec.template === "runner") {
+  if (template === "runner") {
     return createRunnerRenderer();
   }
 
@@ -28,7 +28,9 @@ function createRenderer(spec: GameSpec): GameRenderer | null {
 
 export function GameCanvas({ spec }: GameCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const renderer = useMemo(() => createRenderer(spec), [spec.template]);
+  // Recreate the renderer only when the template changes — re-mounting Phaser
+  // on every spec edit would tear down and rebuild the game each keystroke.
+  const renderer = useMemo(() => createRenderer(spec.template), [spec.template]);
 
   useEffect(() => {
     const container = containerRef.current;

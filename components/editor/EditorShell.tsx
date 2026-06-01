@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
@@ -67,12 +68,12 @@ export function EditorShell() {
           <p className="mt-3 text-sm leading-6 text-zinc-400">
             {loadError ?? "Loading generated spec..."}
           </p>
-          <a
+          <Link
             className="mt-5 inline-flex h-10 items-center rounded-md bg-cyan-300 px-4 text-sm font-semibold text-zinc-950"
             href="/"
           >
             Generate a spec
-          </a>
+          </Link>
         </section>
       </main>
     );
@@ -83,9 +84,9 @@ export function EditorShell() {
       <header className="border-b border-zinc-800 bg-zinc-950/95 px-5 py-4 sm:px-6">
         <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <a className="text-sm text-zinc-500 hover:text-zinc-300" href="/">
+            <Link className="text-sm text-zinc-500 hover:text-zinc-300" href="/">
               Prompt to Game
-            </a>
+            </Link>
             <h1 className="mt-1 text-2xl font-semibold text-white">
               {spec.title}
             </h1>
